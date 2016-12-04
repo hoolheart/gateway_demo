@@ -14,9 +14,13 @@ byte count = 0;
 // flags
 bool flagStart = false;
 
+// status of controllers
+byte ctrlStatus[3];
+
 void handleMessage() {
   if(rxBuff[0]==0x0B) {
     float val;
+    byte sta;
     if(rxBuff[1]==0x01) {
       // temperature of soil
       val = 23.1+random(100)*0.1-5.0;
@@ -41,6 +45,10 @@ void handleMessage() {
       // CO2
       val = 418.0+random(500)*0.1-25.0;
     }
+    else if(rxBuff[1]>=0x11 && rxBuff[1]<=0x13) {
+      //controllers
+      sta = ctrlStatus[rxBuff[1]-0x11];
+    }
     else {
       return;
     }
@@ -50,13 +58,23 @@ void handleMessage() {
     Serial.write((byte)0xB0);
     Serial.write(rxBuff[1]);
     byte cs = 0;
-    Serial.write((byte)0x01); cs = cs+0x01;
-    byte *pVal = (byte*)&val;
-    for(int i=0;i<4;i++) {
-      Serial.write(pVal[i]);
-      cs = cs+pVal[i];
+    if(rxBuff[1]<=6) {
+      //sensors
+      Serial.write((byte)0x01); cs = cs+0x01;
+      byte *pVal = (byte*)&val;
+      for(int i=0;i<4;i++) {
+        Serial.write(pVal[i]);
+        cs = cs+pVal[i];
+      }
+      Serial.write((byte)0); Serial.write((byte)0);
     }
-    Serial.write((byte)0); Serial.write((byte)0);
+    else {
+      //controllers
+      Serial.write(sta); cs = cs+sta;
+      Serial.write((byte)0); Serial.write((byte)0);
+      Serial.write((byte)0); Serial.write((byte)0);
+      Serial.write((byte)0); Serial.write((byte)0);
+    }
     cs = 0-cs;
     Serial.write(cs);
   }
@@ -73,6 +91,10 @@ void setup() {
   count = 0;
   // initialize flag
   flagStart = false;
+  // initialize controller status
+  ctrlStatus[0] = 2;
+  ctrlStatus[1] = 2;
+  ctrlStatus[2] = 2;
 }
 
 void loop() {
@@ -85,7 +107,6 @@ void loop() {
       if(charIn==0x5a) {
         flagStart = true;
         curStep = 1;
-        digitalWrite(LED_BUILTIN, HIGH);
       }
     }
     else if(curStep==1) {
@@ -123,13 +144,11 @@ void loop() {
       Serial.write(charIn);
     }
   }
-  if(!flagStart) {
-    if(count==0) {
-      digitalWrite(LED_BUILTIN, HIGH);
-    }
-    else if(count==100) {
-      digitalWrite(LED_BUILTIN, LOW);
-    }
+  if(count==0) {
+    digitalWrite(LED_BUILTIN, HIGH);
+  }
+  else if(count==100) {
+    digitalWrite(LED_BUILTIN, LOW);
   }
   count++;
   if(count>=200) {

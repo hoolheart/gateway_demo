@@ -1,12 +1,12 @@
 /*
- * HTTPReporter.h
+ * CmdExecutor.h
  *
- *  Created on: 2016年11月20日
+ *  Created on: 2016年12月4日
  *      Author: hzhou
  */
 
-#ifndef HTTPREPORTER_H_
-#define HTTPREPORTER_H_
+#ifndef CMDEXECUTOR_H_
+#define CMDEXECUTOR_H_
 
 #include "Poco/Runnable.h"
 #include "Poco/Net/HTTPClientSession.h"
@@ -16,22 +16,18 @@ typedef boost::scoped_ptr<Poco::Net::HTTPClientSession> HTTPClientSession_ptr;
 
 namespace gw {
 
-class HTTPReporter : public Poco::Runnable {
+class CmdExecutor : public Poco::Runnable {
 private:
 	HTTPClientSession_ptr session;
 
 public:
-	HTTPReporter(const std::string & host,int port);
-	virtual ~HTTPReporter();
+	CmdExecutor(const std::string & host,int port);
+	virtual ~CmdExecutor();
 
 	//Runnable implementation
 	void run();
-
-private:
-	void reportSensors();
-	void reportControllers();
 };
 
 } /* namespace gw */
 
-#endif /* HTTPREPORTER_H_ */
+#endif /* CMDEXECUTOR_H_ */

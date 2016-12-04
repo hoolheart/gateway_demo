@@ -26,10 +26,18 @@ struct SENSOR_REPORT {
 	unsigned char checkSum;
 };
 
+/** status and command report from controller */
+struct CONTROLLER_REPORT {
+	unsigned char code;
+	unsigned int para;
+	unsigned char bak[2];
+	unsigned char checkSum;
+};
+
 /** command to controller */
 struct CONTROLLER_CMD {
 	unsigned char code;
-	int para;
+	unsigned int para;
 	unsigned char bak[2];
 	unsigned char checkSum;
 };
@@ -37,7 +45,7 @@ struct CONTROLLER_CMD {
 /** command echo to controller */
 struct CONTROLLER_CMD_ECHO {
 	unsigned char code;
-	int para;
+	unsigned int para;
 	unsigned char success;
 	unsigned char bak;
 	unsigned char checkSum;

@@ -12,6 +12,8 @@
 #include "Poco/Runnable.h"
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/weak_ptr.hpp>
+#include <list>
 
 namespace gw {
 
@@ -42,12 +44,16 @@ public:
 	virtual void onCommError(unsigned char chl,COMM_ERROR err,std::string what)=0;
 };
 
+typedef boost::weak_ptr<CommErrHandler> CommErrHandler_ptr;
+
 class CommDataHandler {
 public:
 	virtual ~CommDataHandler() {}
 
 	virtual void onCommData(unsigned char chl,COMM_DATA_FRAME &frame)=0;
 };
+
+typedef boost::weak_ptr<CommDataHandler> CommDataHandler_ptr;
 
 /** interface of communicate channel to the sensors */
 class IComm {
@@ -59,8 +65,8 @@ public:
 	virtual void openChannel()=0;/**< open channel */
 	virtual void closeChannel()=0;/**< close channel */
 	virtual void sendData(COMM_DATA_FRAME &frame)=0;/**< send data */
-	virtual void setCommErrHandler(CommErrHandler* handler)=0;/**< set error handler */
-	virtual void setCommDataHandler(CommDataHandler* handler)=0;/**< set data handler */
+	virtual void regCommErrHandler(CommErrHandler_ptr handler)=0;/**< register error handler */
+	virtual void regCommDataHandler(CommDataHandler_ptr handler)=0;/**< register data handler */
 };
 
 typedef boost::shared_ptr<IComm> IComm_ptr;
@@ -78,8 +84,8 @@ private:
 	int dataIndex;
 	boost::scoped_ptr<Poco::Thread> thd;
 	bool runSignal;
-	CommErrHandler* errHandler;
-	CommDataHandler* dataHandler;
+	std::list<CommErrHandler_ptr> errHandlers;
+	std::list<CommDataHandler_ptr> dataHandlers;
 
 public:
 	explicit SerialComm(unsigned char _chl,int _baudRate);
@@ -94,11 +100,13 @@ public:
 	virtual void openChannel();/**< open channel */
 	virtual void closeChannel();/**< close channel */
 	virtual void sendData(COMM_DATA_FRAME &frame);/**< send data */
-	virtual void setCommErrHandler(CommErrHandler* handler);/**< set error handler */
-	virtual void setCommDataHandler(CommDataHandler* handler);/**< set data handler */
+	virtual void regCommErrHandler(CommErrHandler_ptr handler);/**< register error handler */
+	virtual void regCommDataHandler(CommDataHandler_ptr handler);/**< register data handler */
 
 private:
 	int map_speed_to_unix(int speed);
+	void handleData(unsigned char chl,COMM_DATA_FRAME &frame);
+	void handleErr(unsigned char chl,COMM_ERROR err,std::string what);
 };
 
 } /* namespace gw */

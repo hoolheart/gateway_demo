@@ -9,6 +9,7 @@
 #define DEVICE_H_
 #include <string>
 #include <boost/shared_ptr.hpp>
+#include <map>
 
 namespace gw {
 
@@ -20,8 +21,7 @@ enum DEVICE_STATUS {
 	DEVICE_FAULT = 3
 };
 
-class Device
-{
+class Device {
 private:
 	unsigned char channel;
 	unsigned char addr;
@@ -48,8 +48,7 @@ public:
 	virtual std::string getType() const=0;
 };
 
-class Sensor : public Device
-{
+class Sensor : public Device {
 private:
 	float value;
 	float min,max;
@@ -82,10 +81,39 @@ public:
 	virtual std::string getType() const;
 };
 
+struct CONTROLLER_CMD {
+	unsigned char code;
+	std::string name;
+	unsigned int para;
+
+	CONTROLLER_CMD():code(0),name(std::string()),para(0) {}
+	CONTROLLER_CMD(unsigned char _code,const std::string &_name,unsigned int _para):code(_code),name(_name),para(_para) {}
+};
+
+class Controller : public Device {
+private:
+	std::map<unsigned char,CONTROLLER_CMD> cmdHash;/**< hash of available commands */
+	CONTROLLER_CMD cur;/**< current command status */
+
+public:
+	explicit Controller();
+	explicit Controller(int _chl,unsigned char _addr,const std::string &_id,const std::string &_name);
+	~Controller();
+
+	virtual std::string getType() const;
+
+	void appendCmd(unsigned char _code,const std::string &_name);
+	CONTROLLER_CMD getCmdInfo(unsigned char _code) const;
+	CONTROLLER_CMD getCmdInfo(const std::string &_name) const;
+	void setCurrentCmd(unsigned char _code,unsigned int _para);
+	CONTROLLER_CMD getCurrentCmd() const;
+};
+
 // smart pointers
 typedef boost::shared_ptr<Device> Device_ptr;
 typedef boost::shared_ptr<Sensor> Sensor_ptr;
 typedef boost::shared_ptr<Gateway> Gateway_ptr;
+typedef boost::shared_ptr<Controller> Controller_ptr;
 
 } /* namespace gw */
 

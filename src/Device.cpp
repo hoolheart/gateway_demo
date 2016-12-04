@@ -11,13 +11,11 @@ namespace gw {
 
 Device::Device():
 		channel(0),addr(0),name(std::string()),status(DEVICE_UNKNOWN)
-{
-}
+{}
 
 Device::Device(unsigned char _chl,unsigned char _addr,const std::string &_id,const std::string &_name):
-		channel(_chl),addr(_addr),name(_name),id(_id),status(DEVICE_UNKNOWN)
-{
-}
+		channel(_chl),addr(_addr),id(_id),name(_name),status(DEVICE_UNKNOWN)
+{}
 
 Device::~Device() {}
 
@@ -40,8 +38,7 @@ void Device::setName(std::string _name) {name = _name;}
 
 char Device::getStatus() const {return status;}
 
-void Device::setStatus(char _status)
-{
+void Device::setStatus(char _status) {
 	if((_status>=DEVICE_UNKNOWN) && (_status<=DEVICE_FAULT)) {//check validation
 		status = _status;
 	}
@@ -57,8 +54,7 @@ Sensor::Sensor(int _chl,unsigned char _addr,const std::string &_id,const std::st
 
 Sensor::~Sensor() {}
 
-std::string Sensor::getType() const
-{
+std::string Sensor::getType() const {
 	return std::string("sensor");//type: sensor
 }
 
@@ -72,15 +68,12 @@ float Sensor::getMax() const {return max;}
 
 std::string Sensor::getUnit() const {return unit;}
 
-void Sensor::setupParameter(float _min,float _max,std::string _unit)
-{
+void Sensor::setupParameter(float _min,float _max,std::string _unit) {
 	min = _min; max = _max;
 	unit = _unit;
 }
 
-Gateway::Gateway():
-		Device()
-{}
+Gateway::Gateway(): Device() {}
 
 Gateway::Gateway(const std::string &_id,const std::string &_name):
 		Device(0,0,_id,_name)
@@ -88,9 +81,57 @@ Gateway::Gateway(const std::string &_id,const std::string &_name):
 
 Gateway::~Gateway() {}
 
-std::string Gateway::getType() const
-{
+std::string Gateway::getType() const {
 	return std::string("gateway");
+}
+
+Controller::Controller():Device() {
+}
+
+Controller::Controller(int _chl, unsigned char _addr,const std::string& _id, const std::string& _name):
+	Device(_chl,_addr,_id,_name) {
+}
+
+Controller::~Controller() {
+}
+
+std::string Controller::getType() const {
+	return "controller";
+}
+
+void Controller::appendCmd(unsigned char _code, const std::string& _name) {
+	if(cmdHash.count(_code)==0) {
+		cmdHash.insert(std::make_pair(_code,CONTROLLER_CMD(_code,_name,0)));
+	}
+}
+
+CONTROLLER_CMD Controller::getCmdInfo(unsigned char _code) const {
+	if(cmdHash.count(_code)) {
+		return cmdHash.at(_code);
+	}
+	return CONTROLLER_CMD();
+}
+
+CONTROLLER_CMD Controller::getCmdInfo(const std::string& _name) const {
+	for(std::map<unsigned char,CONTROLLER_CMD>::const_iterator i=cmdHash.begin();i!=cmdHash.end();i++) {
+		const CONTROLLER_CMD &cmd = i->second;//get available command
+		if(cmd.name==_name) {
+			return cmd;
+		}
+	}
+	return CONTROLLER_CMD();
+}
+
+void Controller::setCurrentCmd(unsigned char _code,unsigned int _para) {
+	//check availability of code
+	if(cmdHash.count(_code)) {
+		cur = cmdHash[_code];//copy command from hash
+		cur.para = _para;//record parameter
+	}
+}
+
+CONTROLLER_CMD Controller::getCurrentCmd() const {
+	return cur;
 }
 
 } /* namespace gw */

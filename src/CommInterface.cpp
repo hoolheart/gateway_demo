@@ -16,7 +16,7 @@
 namespace gw {
 
 SerialComm::SerialComm(unsigned char _chl,int _baudRate):
-	chl(_chl),file(0),baudRate(_baudRate),status(CHANNEL_CLOSED),step(HEADER1),dataIndex(0),runSignal(false),errHandler(0),dataHandler(0) {
+	chl(_chl),file(0),baudRate(_baudRate),status(CHANNEL_CLOSED),step(HEADER1),dataIndex(0),runSignal(false) {
 	thd.reset(new Poco::Thread());
 	txBuff[0] = 0x5a; txBuff[1] = 0x5a;
 }
@@ -72,9 +72,9 @@ void SerialComm::run() {
 						cs += rxBuff.data[i];
 					}
 					//std::cout<<"[UART] checksum: 0x"<<std::hex<<(int)cs<<std::endl;
-					if(cs==0 && dataHandler) {
+					if(cs==0) {
 						//success
-						dataHandler->onCommData(chl,rxBuff);
+						handleData(chl,rxBuff);
 					}
 					//return to header
 					step = HEADER1;
@@ -104,9 +104,7 @@ void SerialComm::openChannel() {
 		int baudFactor = map_speed_to_unix(baudRate);
 		if (baudFactor < 0) {
 			std::cout<<"Invalid baud rate: "<<baudRate<<std::endl;
-			if(errHandler) {
-				errHandler->onCommError(chl,CHL_FAILED_OPEN,std::string("Invalid baud rate"));
-			}
+			handleErr(chl,CHL_FAILED_OPEN,std::string("Invalid baud rate"));
 			return;
 		}
 
@@ -116,9 +114,7 @@ void SerialComm::openChannel() {
 		file = open(device, O_RDWR | O_NOCTTY | O_NDELAY);//try open
 		if (file<0) {
 			std::cout<<"Failed to open file: "<<fName.str()<<std::endl;
-			if(errHandler) {
-				errHandler->onCommError(chl,CHL_FAILED_OPEN,std::string("failed to open file")+fName.str());
-			}
+			handleErr(chl,CHL_FAILED_OPEN,std::string("failed to open file")+fName.str());
 			return;
 		}
 
@@ -184,10 +180,10 @@ void SerialComm::sendData(COMM_DATA_FRAME& frame) {
 		txBuff[11] = cs;
 		//send
 		int cnt = write(file,txBuff,12);
-		if((cnt<0) && errHandler) {
+		if(cnt<0) {
 			//error
 			std::ostringstream err; err<<"failed to send data to address: "<<frame.addr;
-			errHandler->onCommError(chl,CHL_FAILED_SEND,err.str());
+			handleErr(chl,CHL_FAILED_SEND,err.str());
 		}
 		else {
 			std::cout<<"Succeed to send command by UART"<<std::endl;
@@ -195,12 +191,12 @@ void SerialComm::sendData(COMM_DATA_FRAME& frame) {
 	}
 }
 
-void SerialComm::setCommErrHandler(CommErrHandler* handler) {
-	errHandler = handler;
+void SerialComm::regCommErrHandler(CommErrHandler_ptr handler) {
+	errHandlers.push_back(handler);
 }
 
-void SerialComm::setCommDataHandler(CommDataHandler* handler) {
-	dataHandler = handler;
+void SerialComm::regCommDataHandler(CommDataHandler_ptr handler) {
+	dataHandlers.push_back(handler);
 }
 
 int SerialComm::map_speed_to_unix(int speed) {
@@ -240,6 +236,34 @@ int SerialComm::map_speed_to_unix(int speed) {
 	}
 
 	return unix_speed;
+}
+
+void SerialComm::handleData(unsigned char chl, COMM_DATA_FRAME& frame) {
+	std::list<CommDataHandler_ptr>::iterator it = dataHandlers.begin();
+	while(it!=dataHandlers.end()) {
+		CommDataHandler_ptr &handler = *it;//get handler
+		if(handler.expired()) {
+			it = dataHandlers.erase(it);//erase unavailable handler
+		}
+		else {
+			handler.lock()->onCommData(chl,frame);//handle data
+			it++;
+		}
+	}
+}
+
+void SerialComm::handleErr(unsigned char chl, COMM_ERROR err,std::string what) {
+	std::list<CommErrHandler_ptr>::iterator it = errHandlers.begin();
+	while(it!=errHandlers.end()) {
+		CommErrHandler_ptr &handler = *it;//get handler
+		if(handler.expired()) {
+			it = errHandlers.erase(it);//erase unavailable handler
+		}
+		else {
+			handler.lock()->onCommError(chl,err,what);//handler error
+			it++;
+		}
+	}
 }
 
 } /* namespace gw */
