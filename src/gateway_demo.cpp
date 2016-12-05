@@ -14,12 +14,26 @@
 #include "Poco/Logger.h"
 
 #include "DataManage.h"
-#include "HTTPReporter.h"
 #include <boost/shared_ptr.hpp>
 
 #include "Poco/DateTime.h"
 #include "Poco/DateTimeFormatter.h"
+
 #include "DeviceChecker.h"
+#include "HTTPReporter.h"
+#include "CmdFetcher.h"
+#include "CmdExecutor.h"
+
+#define REMOTE_ADDR "118.178.189.181"
+#define REMOTE_PORT 3030
+
+enum CUR_MODE {
+	MODE_INIT=-1,
+	MODE_CHECK,
+	MODE_REPORT,
+	MODE_FETCH,
+	MODE_EXECUTE
+};
 
 class MainProcess
 {
@@ -28,18 +42,23 @@ private:
 	int step;
 	boost::shared_ptr<gw::DeviceChecker> checker;
 	boost::shared_ptr<gw::HTTPReporter> reporter;
-	Poco::Thread chkThd,rptThd;
+	boost::shared_ptr<gw::CmdFetcher> fetcher;
+	boost::shared_ptr<gw::CmdExecutor> executor;
+	gw::DataManage_ptr pDat;
+	Poco::Thread thd;
+	CUR_MODE mode;
 
 public:
-	explicit MainProcess()
+	explicit MainProcess():step(0),mode(MODE_INIT)
 	{
-		_sw.start();//start stopwatch
-		step = 0;//initialize step
+		_sw.start();//start stopwatch]
 		checker.reset(new gw::DeviceChecker());//prepare sensor checker
-		reporter.reset(new gw::HTTPReporter("118.178.189.181",3030));//prepare http reporter
+		reporter.reset(new gw::HTTPReporter(REMOTE_ADDR,REMOTE_PORT));//prepare http reporter
+		fetcher.reset(new gw::CmdFetcher(REMOTE_ADDR,REMOTE_PORT));//prepare command fetcher
+		executor.reset(new gw::CmdExecutor(REMOTE_ADDR,REMOTE_PORT));//prepare command executor
 
 		//bind comm
-		gw::DataManage_ptr pDat = gw::DataManage::getInstance();
+		pDat = gw::DataManage::getInstance();
 		std::list<int> chls = pDat->getChannels();//get channels
 		for(std::list<int>::iterator iChl = chls.begin();iChl!=chls.end();iChl++) {
 			int chl = *iChl;//get channel
@@ -48,33 +67,64 @@ public:
 				//register checker
 				comm->regCommDataHandler(gw::CommDataHandler_ptr(checker));
 				comm->regCommErrHandler(gw::CommErrHandler_ptr(checker));
+				//register executor
+				comm->regCommDataHandler(gw::CommDataHandler_ptr(executor));
 			}
 		}
 	}
 	~MainProcess() {
-		chkThd.join();
-		rptThd.join();
+		thd.join();
 	}
 
 	void onTimer(Poco::Timer& timer)
 	{
 		step++;//increase step
 
-		if((step%2)==0) {//print heart beat every second
+		if((step%10)==0) {//print heart beat every second
 			std::cout << "[MP] Demo has run " << _sw.elapsed()/1e6 << " s." << std::endl;
 		}
 
-		if(step==10) {
-			//start check when 5s passed
-			if(!chkThd.isRunning() && !rptThd.isRunning()) {
-				chkThd.start(*checker);
+		if(thd.isRunning()) {
+			if((step==50) && (mode!=MODE_CHECK)) {
+				pDat->pushTask(gw::TASK("gateway","query",0));
+			}
+			else if((step==100) && (mode!=MODE_REPORT)) {
+				pDat->pushTask(gw::TASK("gateway","report",0));
 			}
 		}
-		else if(step==20) {
-			//start report
-			if(!chkThd.isRunning() && !rptThd.isRunning()) {
-				rptThd.start(*reporter);
+		else {
+			gw::TASK task;
+			while(pDat->popTask(task)) {
+				if(task.device_id=="gateway") {
+					if(task.command=="query") {
+						thd.start(*checker);//start check
+					}
+					else if(task.command=="report") {
+						thd.start(*reporter);//start report
+					}
+				}
+				else if(task.device_id.size()>0){
+					executor->setTask(task);
+					thd.start(*executor);//start execute
+				}
+				if(thd.isRunning()) {
+					break;
+				}
 			}
+			if(!thd.isRunning()) {
+				if(step==50) {
+					thd.start(*checker);
+				}
+				else if(step==100) {
+					thd.start(*reporter);
+				}
+				else {
+					thd.start(*fetcher);
+				}
+			}
+		}
+
+		if(step==100) {
 			step = 0;
 		}
 	}
@@ -88,7 +138,7 @@ int main() {
 	gw::DataManage::getInstance();
 
 	//setup timer
-	Poco::Timer timer(500,500);
+	Poco::Timer timer(100,100);
 	MainProcess mainProc;
 	timer.start(Poco::TimerCallback<MainProcess>(mainProc, &MainProcess::onTimer));
 

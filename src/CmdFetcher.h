@@ -11,6 +11,7 @@
 #include "Poco/Runnable.h"
 #include "Poco/Net/HTTPClientSession.h"
 #include <boost/scoped_ptr.hpp>
+#include "Poco/Dynamic/Struct.h"
 
 typedef boost::scoped_ptr<Poco::Net::HTTPClientSession> HTTPClientSession_ptr;
 
@@ -26,6 +27,10 @@ public:
 
 	//Runnable implementation
 	void run();
+
+private:
+	//handle json data
+	void handleJSON(Poco::Dynamic::Var &result);
 };
 
 } /* namespace gw */

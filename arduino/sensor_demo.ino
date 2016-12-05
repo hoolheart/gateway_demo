@@ -78,6 +78,27 @@ void handleMessage() {
     cs = 0-cs;
     Serial.write(cs);
   }
+  else if(rxBuff[0]==0x0A) {
+    if(rxBuff[1]>=0x11 && rxBuff[1]<=0x13) {
+      //controllers
+      int index = rxBuff[1]-0x11;
+      if((rxBuff[2]==1) || (rxBuff[2]==2)) {
+        ctrlStatus[index] = rxBuff[2];//record
+        //echo
+        Serial.write((byte)0x5A);
+        Serial.write((byte)0x5A);
+        Serial.write((byte)0xA0);
+        Serial.write(rxBuff[1]);
+        byte cs = 0;
+        Serial.write(ctrlStatus[index]); cs += ctrlStatus[index];
+        Serial.write((byte)0); Serial.write((byte)0);
+        Serial.write((byte)0); Serial.write((byte)0);
+        Serial.write((byte)1); Serial.write((byte)0); cs += 1;
+        cs = 0-cs;
+        Serial.write(cs);
+      }
+    }
+  }
 }
 
 void setup() {

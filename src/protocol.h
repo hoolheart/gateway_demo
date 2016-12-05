@@ -35,7 +35,7 @@ struct CONTROLLER_REPORT {
 };
 
 /** command to controller */
-struct CONTROLLER_CMD {
+struct CONTROLLER_COMMAND {
 	unsigned char code;
 	unsigned int para;
 	unsigned char bak[2];

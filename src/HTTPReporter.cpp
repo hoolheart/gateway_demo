@@ -22,7 +22,7 @@ namespace gw {
 HTTPReporter::HTTPReporter(const std::string & host,int port) {
 	// create session
 	session.reset(new Poco::Net::HTTPClientSession(host,port));
-	session->setTimeout(Poco::Timespan(5,0));
+	session->setTimeout(Poco::Timespan(1,0));
 }
 
 HTTPReporter::~HTTPReporter() {
@@ -134,11 +134,12 @@ void HTTPReporter::reportControllers() {
 		Controller_ptr pController = it->second;//get sensor
 		CONTROLLER_CMD cur = pController->getCurrentCmd();//get current command
 		std::string state = cur.name;
-		if(pController->getStatus()==DEVICE_UNKNOWN) {
+		std::cout<<"[CTRL_STATUS] "<<pController->getName()<<(int)pController->getStatus()<<std::endl;
+		if((pController->getStatus()==DEVICE_UNKNOWN) || (state.size()==0)) {
 			state = std::string("invalid");
 		}
 		body<<"{\"device_id\":\""<<pController->getID()<<"\",\"name\":\""<<pController->getName()
-				<<"\",\"status\":"<<state<<"}";
+				<<"\",\"status\":\""<<state<<"\"}";
 		pController->setStatus(DEVICE_UNKNOWN);
 	}
 	body<<"\n]\n";
