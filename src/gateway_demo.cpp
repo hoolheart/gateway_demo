@@ -24,7 +24,9 @@
 #include "CmdFetcher.h"
 #include "CmdExecutor.h"
 
-#define REMOTE_ADDR "118.178.189.181"
+#include "ErrorHandler.h"
+
+#define REMOTE_ADDR "192.168.1.100"
 #define REMOTE_PORT 3030
 
 enum CUR_MODE {
@@ -45,7 +47,7 @@ private:
 	boost::shared_ptr<gw::CmdFetcher> fetcher;
 	boost::shared_ptr<gw::CmdExecutor> executor;
 	gw::DataManage_ptr pDat;
-	Poco::Thread thd;
+	boost::shared_ptr<Poco::Thread> thd;
 	CUR_MODE mode;
 
 public:
@@ -56,6 +58,9 @@ public:
 		reporter.reset(new gw::HTTPReporter(REMOTE_ADDR,REMOTE_PORT));//prepare http reporter
 		fetcher.reset(new gw::CmdFetcher(REMOTE_ADDR,REMOTE_PORT));//prepare command fetcher
 		executor.reset(new gw::CmdExecutor(REMOTE_ADDR,REMOTE_PORT));//prepare command executor
+
+		//prepare thread
+		thd.reset(new Poco::Thread());
 
 		//bind comm
 		pDat = gw::DataManage::getInstance();
@@ -73,22 +78,55 @@ public:
 		}
 	}
 	~MainProcess() {
-		thd.join();
+		thd->join();
+	}
+
+	void tryStartThd(CUR_MODE m) {
+		//get runnable
+		boost::shared_ptr<Poco::Runnable> runnable;
+		switch (m) {
+		case MODE_CHECK:
+			runnable = checker;
+			break;
+		case MODE_REPORT:
+			runnable = reporter;
+			break;
+		case MODE_FETCH:
+			runnable = fetcher;
+			break;
+		case MODE_EXECUTE:
+			runnable = executor;
+			break;
+		default:
+			break;
+		}
+		if(runnable && (!thd->isRunning())) {
+			try {
+				thd->join();
+				thd->start(*runnable);
+				mode = m;
+			}
+			catch (...) {
+				std::cout<<"Failed to start thread for mode: "<<m<<std::endl;
+				thd.reset(new Poco::Thread());
+				std::cout<<"Recreate thread"<<std::endl;
+			}
+		}
 	}
 
 	void onTimer(Poco::Timer& timer)
 	{
 		step++;//increase step
 
-		if((step%10)==0) {//print heart beat every second
+		if((step%100)==0) {//print heart beat every second
 			std::cout << "[MP] Demo has run " << _sw.elapsed()/1e6 << " s." << std::endl;
 		}
 
-		if(thd.isRunning()) {
-			if((step==50) && (mode!=MODE_CHECK)) {
+		if(thd->isRunning()) {
+			if((step==250) && (mode!=MODE_CHECK)) {
 				pDat->pushTask(gw::TASK("gateway","query",0));
 			}
-			else if((step==100) && (mode!=MODE_REPORT)) {
+			else if((step==500) && (mode!=MODE_REPORT)) {
 				pDat->pushTask(gw::TASK("gateway","report",0));
 			}
 		}
@@ -97,34 +135,34 @@ public:
 			while(pDat->popTask(task)) {
 				if(task.device_id=="gateway") {
 					if(task.command=="query") {
-						thd.start(*checker);//start check
+						tryStartThd(MODE_CHECK);
 					}
 					else if(task.command=="report") {
-						thd.start(*reporter);//start report
+						tryStartThd(MODE_REPORT);
 					}
 				}
 				else if(task.device_id.size()>0){
 					executor->setTask(task);
-					thd.start(*executor);//start execute
+					tryStartThd(MODE_EXECUTE);
 				}
-				if(thd.isRunning()) {
+				if(thd->isRunning()) {
 					break;
 				}
 			}
-			if(!thd.isRunning()) {
-				if(step==50) {
-					thd.start(*checker);
+			if(!thd->isRunning()) {
+				if(step==250) {
+					tryStartThd(MODE_CHECK);
 				}
-				else if(step==100) {
-					thd.start(*reporter);
+				else if(step==500) {
+					tryStartThd(MODE_REPORT);
 				}
-				else {
-					thd.start(*fetcher);
+				else if((step%50)==0){
+					tryStartThd(MODE_FETCH);
 				}
 			}
 		}
 
-		if(step==100) {
+		if(step>=500) {
 			step = 0;
 		}
 	}
@@ -134,11 +172,15 @@ int main() {
 	std::cout << "Hello World" << std::endl; // prints !!!Hello World!!!
 	std::cout << Poco::DateTimeFormatter::format(Poco::DateTime(),"%Y-%m-%dT%H:%M:%S%z") <<std::endl;
 
+	//prepare error handler
+	gw::ErrorHandler handler;
+	Poco::ErrorHandler *pre_handler = Poco::ErrorHandler::set(&handler);
+
 	//setup data
 	gw::DataManage::getInstance();
 
 	//setup timer
-	Poco::Timer timer(100,100);
+	Poco::Timer timer(10,10);
 	MainProcess mainProc;
 	timer.start(Poco::TimerCallback<MainProcess>(mainProc, &MainProcess::onTimer));
 
@@ -147,5 +189,7 @@ int main() {
 	std::cin >> exit_code;
 	timer.stop();
 
+	//restore error handler and exit
+	Poco::ErrorHandler::set(pre_handler);
 	return exit_code;
 }

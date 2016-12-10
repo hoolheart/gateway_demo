@@ -38,6 +38,7 @@ private:
 	Gateway_ptr gw;
 
 	std::list<TASK> tasks;
+	Poco::Mutex taskMutex;
 
 private:
 	explicit DataManage();
@@ -66,7 +67,7 @@ public:
 private:
 	void addSensor(unsigned char chl,unsigned char addr,std::string id,
 			std::string name,float min,float max,std::string unit);
-	void addController(unsigned char chl,unsigned char addr,std::string id,std::string name,
+	void addController(unsigned char chl,unsigned char addr,std::string id,std::string name,std::string type,
 			std::map<unsigned char,std::string> cmds);
 };
 

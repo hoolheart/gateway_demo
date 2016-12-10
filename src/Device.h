@@ -10,6 +10,7 @@
 #include <string>
 #include <boost/shared_ptr.hpp>
 #include <map>
+#include "Poco/Mutex.h"
 
 namespace gw {
 
@@ -28,6 +29,9 @@ private:
 	std::string id;
 	std::string name;
 	char status;
+
+protected:
+	Poco::Mutex mutex;
 
 public:
 	explicit Device();
@@ -94,10 +98,11 @@ class Controller : public Device {
 private:
 	std::map<unsigned char,CONTROLLER_CMD> cmdHash;/**< hash of available commands */
 	CONTROLLER_CMD cur;/**< current command status */
+	std::string ctrlType;/**< type of controller */
 
 public:
 	explicit Controller();
-	explicit Controller(int _chl,unsigned char _addr,const std::string &_id,const std::string &_name);
+	explicit Controller(int _chl,unsigned char _addr,const std::string &_id,const std::string &_name,const std::string &_type);
 	~Controller();
 
 	virtual std::string getType() const;
@@ -107,6 +112,8 @@ public:
 	CONTROLLER_CMD getCmdInfo(const std::string &_name) const;
 	void setCurrentCmd(unsigned char _code,unsigned int _para);
 	CONTROLLER_CMD getCurrentCmd() const;
+	std::string getControllerType() const;
+	void setControllerType(const std::string &_type);
 };
 
 // smart pointers

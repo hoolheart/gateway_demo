@@ -22,9 +22,9 @@ DataManage::DataManage() {
 	//build controller map
 	std::map<unsigned char,std::string> cmds;//prepare command list
 	cmds.insert(std::make_pair(1,"on")); cmds.insert(std::make_pair(2,"off"));
-	addController(4,0x11,"engine_top1","天窗卷膜机1",cmds);
-	addController(4,0x12,"engine_side1","侧窗卷膜机1",cmds);
-	addController(4,0x13,"electromagnetic_valve","电磁阀",cmds);
+	addController(4,0x11,"HY01J1","HY01内遮阳展开","遮阳板",cmds);
+	addController(4,0x12,"HY01J2","HY01内遮阳合拢","遮阳板",cmds);
+	addController(4,0x13,"HY01J7","HY01电磁阀1","电磁阀",cmds);
 	//setup channels
 	channels.insert(std::make_pair(4,new SerialComm(4,19200)));//UART 4
 	for(std::map<int,IComm_ptr>::iterator iChl = channels.begin();iChl!=channels.end();iChl++) {
@@ -167,6 +167,7 @@ void DataManage::addSensor(unsigned char chl, unsigned char addr,std::string id,
 }
 
 void DataManage::pushTask(TASK task) {
+	Poco::Mutex::ScopedLock locker(taskMutex);
 	tasks.push_back(task);
 	while(tasks.size()>TASK_MAX_SIZE) {
 		tasks.pop_front();
@@ -174,6 +175,7 @@ void DataManage::pushTask(TASK task) {
 }
 
 bool DataManage::popTask(TASK& task) {
+	Poco::Mutex::ScopedLock locker(taskMutex);
 	if(tasks.size()) {
 		task = tasks.front();//task first task
 		tasks.pop_front();
@@ -183,14 +185,14 @@ bool DataManage::popTask(TASK& task) {
 }
 
 void DataManage::addController(unsigned char chl, unsigned char addr,
-		std::string id, std::string name,
+		std::string id, std::string name, std::string type,
 		std::map<unsigned char, std::string> cmds) {
 	//get united key
 	unsigned short key = chl;
 	key = (key<<8)+addr;
 	//check key availability
 	if(controllers.count(key)==0) {
-		Controller_ptr dev(new Controller(chl,addr,id,name));//create controller
+		Controller_ptr dev(new Controller(chl,addr,id,name,type));//create controller
 		for(std::map<unsigned char, std::string>::iterator i=cmds.begin();i!=cmds.end();i++) {
 			dev->appendCmd(i->first,i->second);//append available command
 		}

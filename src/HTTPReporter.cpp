@@ -30,8 +30,11 @@ HTTPReporter::~HTTPReporter() {
 }
 
 void HTTPReporter::run() {
+	std::cout<<"!!!HTTP Reporter!!!"<<std::endl;
 	reportSensors();
+	Poco::Thread::sleep(10);
 	reportControllers();
+	Poco::Thread::sleep(10);
 }
 
 void HTTPReporter::reportSensors() {
@@ -46,7 +49,7 @@ void HTTPReporter::reportSensors() {
 	//gateway
 	Gateway_ptr pGateway = pDat->getGateway();
 	body<<"\"site\":\""<<pGateway->getName()<<"\",\n";
-	body<<"\"index\":\""<<pGateway->getID()<<"\",\n";
+	body<<"\"gateway_id\":\""<<pGateway->getID()<<"\",\n";
 	//time
 	Poco::DateTime cur;
 	cur += Poco::Timespan(3600*8,0);//+8 zone
@@ -70,7 +73,7 @@ void HTTPReporter::reportSensors() {
 		if(pSensor->getStatus()==DEVICE_OK) {
 			state = std::string("true");
 		}
-		body<<"{\"name\":\""<<pSensor->getName()<<"\",\"index\":\""<<pSensor->getID()
+		body<<"{\"name\":\""<<pSensor->getName()<<"\",\"sensor_id\":\""<<pSensor->getID()
 				<<"\",\"value\":"<<pSensor->getValue()
 				<<",\"max\":"<<pSensor->getMax()<<",\"min\":"<<pSensor->getMin()
 				<<",\"unit\":\""<<pSensor->getUnit()<<"\","
@@ -93,18 +96,18 @@ void HTTPReporter::reportSensors() {
 		else {
 			std::cout<<"[HR] Response status from HTTP Server isn't OK "<<response.getStatus()<<std::endl;
 		}
+		session->reset();//close session
 	}
 	catch(...) {
 		std::cout<<"[HR] Failed to post sensor data to HTTP Server"<<std::endl;
 	}
-	session->reset();//close session
 }
 
 void HTTPReporter::reportControllers() {
 	//get DataManage
 	DataManage_ptr pDat = DataManage::getInstance();
 	//prepare request
-	Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_POST, "/controllerStatus");
+	Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_POST, "/deviceControl");
 	request.setContentType("application/json");
 	//prepare body
 	std::ostringstream body;
@@ -112,7 +115,7 @@ void HTTPReporter::reportControllers() {
 	//gateway
 	Gateway_ptr pGateway = pDat->getGateway();
 	body<<"\"site\":\""<<pGateway->getName()<<"\",\n";
-	body<<"\"gateway_id\":\""<<pGateway->getID()<<"\",\n";
+	body<<"\"gateway_id\":"<<pGateway->getID()<<",\n";
 	//time
 	Poco::DateTime cur;
 	cur += Poco::Timespan(3600*8,0);//+8 zone
@@ -133,13 +136,13 @@ void HTTPReporter::reportControllers() {
 		}
 		Controller_ptr pController = it->second;//get sensor
 		CONTROLLER_CMD cur = pController->getCurrentCmd();//get current command
-		std::string state = cur.name;
-		std::cout<<"[CTRL_STATUS] "<<pController->getName()<<(int)pController->getStatus()<<std::endl;
-		if((pController->getStatus()==DEVICE_UNKNOWN) || (state.size()==0)) {
-			state = std::string("invalid");
+		std::string state = std::string("false");
+		//std::cout<<"[CTRL_STATUS] "<<pController->getName()<<(int)pController->getStatus()<<std::endl;
+		if((pController->getStatus()==DEVICE_OK) && (cur.name=="on")) {
+			state = std::string("true");
 		}
 		body<<"{\"device_id\":\""<<pController->getID()<<"\",\"name\":\""<<pController->getName()
-				<<"\",\"status\":\""<<state<<"\"}";
+				<<"\",\"type\":\""<<pController->getControllerType()<<"\",\"state\":"<<state<<"}";
 		pController->setStatus(DEVICE_UNKNOWN);
 	}
 	body<<"\n]\n";
@@ -157,11 +160,11 @@ void HTTPReporter::reportControllers() {
 		else {
 			std::cout<<"[HR] Response status from HTTP Server isn't OK "<<response.getStatus()<<std::endl;
 		}
+		session->reset();//close session
 	}
 	catch(...) {
 		std::cout<<"[HR] Failed to post controller data to HTTP Server"<<std::endl;
 	}
-	session->reset();//close session
 }
 
 } /* namespace gw */

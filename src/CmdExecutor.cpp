@@ -25,6 +25,7 @@ CmdExecutor::~CmdExecutor() {
 }
 
 void CmdExecutor::run() {
+	std::cout<<"!!!Command Executor!!!"<<std::endl;
 	//get DataManage
 	DataManage_ptr pDat = DataManage::getInstance();
 	//get controller
@@ -48,6 +49,7 @@ void CmdExecutor::run() {
 				result = false;
 			}
 			//report
+#if 0
 			//prepare request
 			Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_POST, "/commandEcho");
 			request.setContentType("application/json");
@@ -79,11 +81,13 @@ void CmdExecutor::run() {
 				else {
 					std::cout<<"[HR] Response status from HTTP Server isn't OK "<<response.getStatus()<<std::endl;
 				}
+				session->reset();//close session
 			}
 			catch(...) {
 				std::cout<<"[HR] Failed to post command echo to HTTP Server"<<std::endl;
 			}
-			session->reset();//close session
+			Poco::Thread::sleep(10);
+#endif
 		}
 	}
 }

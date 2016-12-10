@@ -39,6 +39,7 @@ void Device::setName(std::string _name) {name = _name;}
 char Device::getStatus() const {return status;}
 
 void Device::setStatus(char _status) {
+	Poco::Mutex::ScopedLock locker(mutex);
 	if((_status>=DEVICE_UNKNOWN) && (_status<=DEVICE_FAULT)) {//check validation
 		status = _status;
 	}
@@ -60,7 +61,7 @@ std::string Sensor::getType() const {
 
 float Sensor::getValue() const {return value;}
 
-void Sensor::setValue(float _val) {value = _val;}
+void Sensor::setValue(float _val) {Poco::Mutex::ScopedLock locker(mutex); value = _val;}
 
 float Sensor::getMin() const {return min;}
 
@@ -88,8 +89,8 @@ std::string Gateway::getType() const {
 Controller::Controller():Device() {
 }
 
-Controller::Controller(int _chl, unsigned char _addr,const std::string& _id, const std::string& _name):
-	Device(_chl,_addr,_id,_name) {
+Controller::Controller(int _chl, unsigned char _addr,const std::string& _id, const std::string& _name, const std::string &_type):
+	Device(_chl,_addr,_id,_name),ctrlType(_type) {
 }
 
 Controller::~Controller() {
@@ -123,6 +124,7 @@ CONTROLLER_CMD Controller::getCmdInfo(const std::string& _name) const {
 }
 
 void Controller::setCurrentCmd(unsigned char _code,unsigned int _para) {
+	Poco::Mutex::ScopedLock locker(mutex);
 	//check availability of code
 	if(cmdHash.count(_code)) {
 		cur = cmdHash[_code];//copy command from hash
@@ -132,6 +134,14 @@ void Controller::setCurrentCmd(unsigned char _code,unsigned int _para) {
 
 CONTROLLER_CMD Controller::getCurrentCmd() const {
 	return cur;
+}
+
+std::string Controller::getControllerType() const {
+	return ctrlType;
+}
+
+void Controller::setControllerType(const std::string& _type) {
+	ctrlType = _type;
 }
 
 } /* namespace gw */

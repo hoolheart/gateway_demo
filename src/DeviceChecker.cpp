@@ -20,6 +20,7 @@ DeviceChecker::~DeviceChecker() {
 }
 
 void DeviceChecker::run() {
+	std::cout<<"!!!Device Checker!!!"<<std::endl;
 	//get DataManage
 	DataManage_ptr pDat = DataManage::getInstance();
 	std::list<int> chls = pDat->getChannels();//get all channels
