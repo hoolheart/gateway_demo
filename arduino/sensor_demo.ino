@@ -1,6 +1,13 @@
 /*
  * THIS IS DEMO FOR SENSOR IN IOT PROJECT
  */
+#include <Bounce2.h>
+
+const unsigned int LED_PIN[3] = {10,11,12};
+const unsigned int BUTTON[3] = {5,6,7};
+
+const unsigned int DEBOUNCE_DELAY = 20;
+Bounce buttons[3];
 
 // prepare buffer
 byte rxBuff[10];
@@ -116,10 +123,31 @@ void setup() {
   ctrlStatus[0] = 2;
   ctrlStatus[1] = 2;
   ctrlStatus[2] = 2;
+  // initialize LEDs
+  for(int i=0;i<3;i++) {
+    pinMode(LED_PIN[i],OUTPUT);
+    digitalWrite(LED_PIN[i],LOW);
+  }
+  //initialize buttons
+  for(int i=0;i<3;i++) {
+    buttons[i].attach(BUTTON[i],INPUT);
+    buttons[i].interval(DEBOUNCE_DELAY);
+  }
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  //check buttons
+  for(int i=0;i<3;i++) {
+    if(buttons[i].update() && buttons[i].read()==HIGH) {
+      if(ctrlStatus[i]==1) {
+        ctrlStatus[i] = 2;
+      }
+      else {
+        ctrlStatus[i] = 1;
+      }
+    }
+  }
+  //read serial commands
   byte charIn;
   while(Serial.available()) {
     charIn = Serial.read();//read data
@@ -165,6 +193,16 @@ void loop() {
       Serial.write(charIn);
     }
   }
+  //show controller status
+  for(int i=0;i<3;i++) {
+    if(ctrlStatus[i]==1) {
+      digitalWrite(LED_PIN[i],HIGH);
+    }
+    else {
+      digitalWrite(LED_PIN[i],LOW);
+    }
+  }
+  //heartbeat
   if(count==0) {
     digitalWrite(LED_BUILTIN, HIGH);
   }
