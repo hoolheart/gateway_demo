@@ -26,7 +26,8 @@
 
 #include "ErrorHandler.h"
 
-#define REMOTE_ADDR "192.168.1.100"
+#define REMOTE_ADDR "192.168.0.101"
+//#define REMOTE_ADDR "118.178.189.181"
 #define REMOTE_PORT 3030
 
 enum CUR_MODE {
@@ -123,10 +124,10 @@ public:
 		}
 
 		if(thd->isRunning()) {
-			if((step==250) && (mode!=MODE_CHECK)) {
+			if((step==50) && (mode!=MODE_CHECK)) {
 				pDat->pushTask(gw::TASK("gateway","query",0));
 			}
-			else if((step==500) && (mode!=MODE_REPORT)) {
+			else if((step==100) && (mode!=MODE_REPORT)) {
 				pDat->pushTask(gw::TASK("gateway","report",0));
 			}
 		}
@@ -150,19 +151,19 @@ public:
 				}
 			}
 			if(!thd->isRunning()) {
-				if(step==250) {
+				if(step==50) {
 					tryStartThd(MODE_CHECK);
 				}
-				else if(step==500) {
+				else if(step==100) {
 					tryStartThd(MODE_REPORT);
 				}
-				else if((step%50)==0){
+				else if((step%10)==0){
 					tryStartThd(MODE_FETCH);
 				}
 			}
 		}
 
-		if(step>=500) {
+		if(step>=100) {
 			step = 0;
 		}
 	}

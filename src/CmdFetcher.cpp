@@ -17,7 +17,9 @@
 #include "Poco/JSON/JSONException.h"
 #include "Poco/JSON/Object.h"
 #include "Poco/Dynamic/Struct.h"
+#include "Poco/DateTime.h"
 #include "Poco/Timestamp.h"
+#include "Poco/DateTimeFormatter.h"
 
 namespace gw {
 
@@ -38,7 +40,7 @@ void CmdFetcher::run() {
 	//get DataManage
 	DataManage_ptr pDat = DataManage::getInstance();
 	//prepare request
-	std::ostringstream uri; uri<<"/deviceControl/"<<(t/1000);
+	std::ostringstream uri; uri<<"/deviceControl/"<<(t/1000-2000);
 	t = Poco::Timestamp().epochMicroseconds();//update time
 	Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_GET, uri.str());
 	//std::cout<<"[URI_FETCH] "<<uri.str()<<std::endl;
@@ -68,11 +70,10 @@ void CmdFetcher::run() {
 				if(res_content.str().size()>5) {
 					try {
 						result = parser.parse(res_content.str());//parse data
+						std::cout<<"[REC_TIME]"<<Poco::DateTimeFormatter::format(Poco::DateTime(),"%Y-%m-%dT%H:%M:%S%z",3600*8)<<std::endl;
 						if(result.type() == typeid(Poco::JSON::Array::Ptr)) {
 							Poco::JSON::Array::Ptr arr = result.extract<Poco::JSON::Array::Ptr>();
-							for(unsigned int i=0;i<arr->size();i++) {
-								handleJSON(arr->get(i));//handle json
-							}
+							handleJSON(arr->get(arr->size()-1));//handle json
 						}
 					}
 					catch(Poco::JSON::JSONException& jsone) {

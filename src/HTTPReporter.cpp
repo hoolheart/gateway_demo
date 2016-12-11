@@ -107,7 +107,7 @@ void HTTPReporter::reportControllers() {
 	//get DataManage
 	DataManage_ptr pDat = DataManage::getInstance();
 	//prepare request
-	Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_POST, "/deviceControl");
+	Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_POST, "/deviceData");
 	request.setContentType("application/json");
 	//prepare body
 	std::ostringstream body;
